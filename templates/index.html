@@ -1,0 +1,1744 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Red Neuronal RBF</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;700&display=swap');
+
+  :root {
+    --bg:      #f0f4f8;
+    --panel:   #ffffff;
+    --border:  #dde3ec;
+    --accent:  #0077cc;
+    --accent2: #6d28d9;
+    --success: #059669;
+    --warning: #d97706;
+    --danger:  #dc2626;
+    --text:    #1e293b;
+    --muted:   #64748b;
+    --mono:    'Space Mono', monospace;
+    --sans:    'DM Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0; pointer-events: none;
+    background-image:
+      linear-gradient(rgba(0,119,204,.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,119,204,.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  label  { font-size: 13px; }
+  td, th { font-size: 13px; }
+  .sec-title { font-size: 10px; }
+  .chart-title { font-size: 12px; letter-spacing: .5px; }
+  .desc-item { font-size: 13px; }
+  .desc-card h4 { font-size: 13px; }
+  .stat-label { font-size: 12px; }
+  .stat-sub   { font-size: 12px; }
+  .tab { font-size: 13px; }
+
+  /* ── HEADER — tema blanco, totalmente visible ── */
+  header {
+    padding: 14px 28px;
+    border-bottom: 2px solid var(--border);
+    display: flex; align-items: center; gap: 14px;
+    background: var(--panel);
+    box-shadow: 0 2px 10px rgba(0,0,0,.07);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 12px; font-weight: 700; color: #fff;
+    flex-shrink: 0;
+  }
+  header h1 {
+    font-family: var(--mono); font-size: 16px;
+    color: var(--text); font-weight: 700;
+  }
+  header h1 span { color: var(--muted); font-weight: 400; }
+  #badge-estado {
+    margin-left: auto;
+    font-size: 11px; color: var(--muted);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 4px 14px; border-radius: 20px;
+    font-family: var(--mono);
+    white-space: nowrap;
+  }
+
+  /* LAYOUT */
+  .layout {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    min-height: calc(100vh - 61px);
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    padding: 20px 16px;
+    display: flex; flex-direction: column; gap: 16px;
+    overflow-y: auto;
+  }
+
+  .sec-title {
+    font-family: var(--mono); font-size: 10px;
+    letter-spacing: 2px; color: var(--accent);
+    text-transform: uppercase; margin-bottom: 10px;
+  }
+
+  .card {
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px;
+  }
+
+  label {
+    display: block; font-size: 13px;
+    color: var(--muted); margin-bottom: 5px; font-weight: 500;
+  }
+
+  input[type="number"], input[type="text"], select {
+    width: 100%;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 7px; padding: 8px 11px;
+    color: var(--text); font-family: var(--mono); font-size: 13px;
+    outline: none; margin-bottom: 10px; transition: border-color .2s;
+  }
+  input:focus, select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0,212,255,.1);
+  }
+  select option { background: var(--panel); }
+
+  input[type="file"] {
+    width: 100%; padding: 7px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 7px; color: var(--muted);
+    font-size: 13px; cursor: pointer; margin-bottom: 8px;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none; width: 100%;
+    height: 4px; background: var(--border);
+    border-radius: 4px; outline: none;
+    margin-bottom: 4px; padding: 0; border: none; box-shadow: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    background: var(--accent); border-radius: 50%; cursor: pointer;
+  }
+  .part-labels {
+    display: flex; justify-content: space-between;
+    font-size: 12px; color: var(--muted); font-family: var(--mono);
+    margin-bottom: 10px;
+  }
+
+  .toggle-row {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+  }
+  .toggle { position: relative; width: 34px; height: 18px; flex-shrink: 0; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .slider-tog {
+    position: absolute; inset: 0;
+    background: var(--border); border-radius: 18px;
+    cursor: pointer; transition: .3s;
+  }
+  .slider-tog:before {
+    content: ''; position: absolute;
+    width: 12px; height: 12px; left: 3px; top: 3px;
+    background: white; border-radius: 50%; transition: .3s;
+  }
+  input:checked + .slider-tog { background: var(--accent); }
+  input:checked + .slider-tog:before { transform: translateX(16px); }
+
+  #centros-container { display: none; }
+  .centro-bloque {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 7px; padding: 8px; margin-bottom: 6px;
+  }
+  .centro-bloque-title {
+    font-family: var(--mono); font-size: 10px;
+    color: var(--accent); margin-bottom: 6px;
+  }
+  .centro-inputs { display: flex; gap: 4px; flex-wrap: wrap; }
+  .centro-inputs input {
+    flex: 1; min-width: 50px; margin-bottom: 0;
+    padding: 5px 4px; font-size: 11px;
+  }
+
+  .btn {
+    width: 100%; padding: 11px;
+    border: none; border-radius: 8px;
+    font-family: var(--mono); font-size: 12px; font-weight: 700;
+    cursor: pointer; transition: all .2s;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), #0090b3); color: #fff;
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,119,204,.3); }
+  .btn-primary:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+  .btn-secondary {
+    background: transparent; border: 1px solid var(--border);
+    color: var(--muted); margin-top: 6px;
+  }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+  .console {
+    background: #1e293b; border: 1px solid #334155;
+    border-radius: 7px; padding: 10px;
+    font-family: var(--mono); font-size: 12px;
+    color: #94a3b8; height: 160px;
+    overflow-y: auto; line-height: 1.9;
+  }
+  .log-ok   { color: #34d399; }
+  .log-warn { color: #fbbf24; }
+  .log-err  { color: #f87171; }
+  .log-info { color: #60a5fa; }
+
+  /* MAIN */
+  .main { padding: 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
+
+  .stats-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
+  .stat-card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px; position: relative; overflow: hidden;
+  }
+  .stat-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  }
+  .stat-card.blue::before   { background: var(--accent); }
+  .stat-card.green::before  { background: var(--success); }
+  .stat-card.purple::before { background: var(--accent2); }
+  .stat-card.orange::before { background: var(--warning); }
+  .stat-label { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+  .stat-value { font-family: var(--mono); font-size: 26px; font-weight: 700; line-height: 1; }
+  .stat-card.blue   .stat-value { color: var(--accent); }
+  .stat-card.green  .stat-value { color: var(--success); }
+  .stat-card.purple .stat-value { color: var(--accent2); }
+  .stat-card.orange .stat-value { color: var(--warning); }
+  .stat-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
+
+  .tabs {
+    display: flex; gap: 3px;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 9px; padding: 3px; width: fit-content;
+  }
+  .tab {
+    padding: 8px 18px; border-radius: 6px;
+    font-size: 13px; font-family: var(--mono);
+    cursor: pointer; color: var(--muted);
+    border: none; background: transparent; transition: all .2s;
+  }
+  .tab.active { background: var(--accent); color: #fff; font-weight: 700; }
+  .tab:hover:not(.active) { color: var(--text); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+
+  .chart-card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px;
+  }
+  .chart-title {
+    font-family: var(--mono); font-size: 11px;
+    color: var(--muted); letter-spacing: 1px;
+    text-transform: uppercase; margin-bottom: 12px;
+  }
+  .chart-wrap { position: relative; height: 210px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; font-family: var(--mono); }
+  th {
+    padding: 8px 12px; text-align: left;
+    font-size: 11px; letter-spacing: 1px;
+    color: var(--accent); text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+  td { padding: 7px 12px; border-bottom: 1px solid rgba(30,45,64,.4); }
+  tr:hover td { background: rgba(0,212,255,.02); }
+  .b-ok  { background: rgba(16,185,129,.15); color: var(--success); }
+  .b-err { background: rgba(239,68,68,.15);  color: var(--danger); }
+
+  .desc-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
+  .desc-card {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px;
+  }
+  .desc-card h4 { font-family: var(--mono); font-size: 12px; color: var(--accent); margin-bottom: 8px; }
+  .desc-item { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
+  .desc-item span:first-child { color: var(--muted); }
+  .desc-item span:last-child  { font-family: var(--mono); }
+
+  .cm-wrap { display: flex; align-items: center; justify-content: center; gap: 28px; padding: 12px 0; }
+  .cm-grid { display: grid; grid-template-columns: auto auto auto; gap: 4px; align-items: center; }
+  .cm-label { font-size: 9px; color: var(--muted); font-family: var(--mono); text-align: center; padding: 3px; }
+  .cm-cell {
+    width: 76px; height: 66px; border-radius: 7px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-family: var(--mono);
+  }
+  .cm-cell .n { font-size: 24px; font-weight: 700; }
+  .cm-cell .t { font-size: 8px; margin-top: 2px; opacity: .7; }
+  .cm-tn, .cm-tp { background: rgba(16,185,129,.15); color: var(--success); border: 1px solid rgba(16,185,129,.3); }
+  .cm-fp, .cm-fn { background: rgba(239,68,68,.1);  color: var(--danger);  border: 1px solid rgba(239,68,68,.2); }
+
+  .metric-row { margin-bottom: 14px; }
+  .metric-header { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 5px; }
+  .metric-name { color: var(--muted); }
+  .metric-val  { font-family: var(--mono); font-weight: 700; }
+  .metric-bar  { height: 5px; background: var(--border); border-radius: 4px; overflow: hidden; }
+  .metric-fill { height: 100%; border-radius: 4px; transition: width 1s ease; }
+
+  .metric-row { margin-bottom: 16px; }
+  .metric-header { display:flex; justify-content:space-between; font-size:14px; margin-bottom:6px; }
+  .metric-name { color: var(--muted); }
+  .metric-val  { font-family: var(--mono); font-weight: 700; font-size: 15px; }
+  .metric-bar  { height: 6px; background: var(--border); border-radius: 4px; overflow: hidden; }
+  .metric-fill { height: 100%; border-radius: 4px; transition: width 1s ease; }
+
+  .mdet-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+  .mdet-card {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px; position: relative; overflow: hidden;
+  }
+  .mdet-card::before {
+    content:''; position:absolute; top:0; left:0; right:0; height:3px;
+  }
+  .mdet-title {
+    font-family: var(--mono); font-size: 12px; font-weight: 700;
+    margin-bottom: 12px; letter-spacing: .5px;
+  }
+  .mdet-formula {
+    background: rgba(255,255,255,.03); border-radius: 7px;
+    padding: 10px 12px; margin-bottom: 10px;
+    font-family: var(--mono); font-size: 13px; line-height: 2;
+  }
+  .mdet-formula .mf-lbl  { color: var(--muted); font-size: 11px; }
+  .mdet-formula .mf-num  { color: var(--text); font-size: 14px; }
+  .mdet-formula .mf-res  { font-size: 18px; font-weight: 700; }
+  .mdet-formula .mf-frac {
+    display: inline-flex; flex-direction: column;
+    align-items: center; vertical-align: middle;
+    margin: 0 6px;
+  }
+  .mdet-formula .mf-num-f  { border-bottom: 1px solid var(--muted); padding: 0 4px; font-size: 13px; }
+  .mdet-formula .mf-den-f  { padding: 0 4px; font-size: 13px; color: var(--muted); }
+  .mdet-result {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 12px;
+    border-radius: 7px; margin-top: 6px;
+  }
+  .mdet-result .mr-label { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+  .mdet-result .mr-val   { font-size: 22px; font-weight: 700; font-family: var(--mono); }
+
+  .mdet-per-clase { margin-top: 16px; }
+  .mdet-per-clase-title {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 2px;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 10px;
+  }
+  .mdet-clase-row {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px 16px; margin-bottom: 8px;
+  }
+  .mdet-clase-header {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+  }
+  .mdet-clase-badge {
+    font-family: var(--mono); font-size: 12px; font-weight: 700;
+    border-radius: 5px; padding: 3px 10px;
+  }
+  .mdet-clase-formulas {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  }
+  .mdet-mini-formula {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 7px; padding: 10px 12px;
+    font-family: var(--mono); font-size: 12px; line-height: 1.9;
+  }
+  .mdet-mini-formula .mm-title { font-size: 10px; color: var(--muted); margin-bottom: 4px; }
+  .mdet-mini-formula .mm-expr  { color: var(--text); }
+  .mdet-mini-formula .mm-result { font-size: 16px; font-weight: 700; }
+
+  .cm-label { font-size: 12px !important; }
+  .weight-chip {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 7px; padding: 8px 12px;
+    font-family: var(--mono); font-size: 12px;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .weight-chip .wlabel { font-size: 10px; color: var(--muted); }
+  .weight-chip .wval   { color: var(--accent); font-weight: 700; }
+
+  .info-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 14px; }
+
+  .badge {
+    display: inline-block; padding: 2px 8px;
+    border-radius: 20px; font-size: 11px; font-weight: 700;
+  }
+
+  .empty {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    height: 380px; gap: 10px; color: var(--muted); text-align: center;
+  }
+  .empty .icon { font-size: 44px; opacity: .25; }
+  .empty p { font-size: 13px; max-width: 280px; line-height: 1.6; }
+
+  .spinner {
+    display: inline-block; width: 12px; height: 12px;
+    border: 2px solid rgba(0,0,0,.2); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin .7s linear infinite;
+    vertical-align: middle; margin-right: 5px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .hidden { display: none !important; }
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* ── CÁLCULOS ── */
+  .calc-patron {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px; margin-bottom: 12px;
+  }
+  .calc-patron-title {
+    font-family: var(--mono); font-size: 12px; font-weight: 700;
+    color: var(--accent); margin-bottom: 12px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .calc-patron-title .patron-num {
+    background: var(--accent); color: #fff;
+    border-radius: 4px; padding: 1px 8px; font-size: 11px;
+  }
+  .calc-step { margin-bottom: 14px; }
+  .calc-step-title {
+    font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--muted); font-family: var(--mono); margin-bottom: 8px;
+  }
+  .calc-formula {
+    background: rgba(0,119,204,.04); border-left: 3px solid var(--accent);
+    border-radius: 0 6px 6px 0; padding: 8px 12px;
+    font-family: var(--mono); font-size: 12px; line-height: 2;
+  }
+  .calc-formula .lbl  { color: var(--muted); font-size: 10px; }
+  .calc-formula .val  { color: var(--accent); font-weight: 700; }
+  .calc-formula .eq   { color: var(--text); }
+  .calc-formula .fa-val { color: var(--warning); font-weight: 700; }
+  .calc-formula .dist { color: var(--success); }
+  .dist-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 6px;
+  }
+  .dist-chip {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 6px; padding: 8px 10px;
+    font-family: var(--mono); font-size: 11px; line-height: 1.8;
+  }
+  .dist-chip .dc-title { color: var(--muted); font-size: 9px; letter-spacing: 1px; }
+  .dist-chip .dc-d     { color: var(--success); }
+  .dist-chip .dc-fa    { color: var(--warning); }
+
+  .eq-block {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px 16px; margin-bottom: 10px;
+  }
+  .eq-block-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 8px;
+  }
+  .eq-patron-badge {
+    background: rgba(0,119,204,.1); border: 1px solid rgba(0,119,204,.25);
+    color: var(--accent); font-family: var(--mono); font-size: 11px;
+    font-weight: 700; border-radius: 5px; padding: 2px 10px;
+  }
+  .eq-yd-badge {
+    font-family: var(--mono); font-size: 13px; font-weight: 700;
+    color: var(--success);
+  }
+  .eq-terminos {
+    display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  }
+  .eq-term {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 6px; padding: 5px 10px;
+    font-family: var(--mono); font-size: 12px;
+    display: flex; flex-direction: column; align-items: center; gap: 1px;
+  }
+  .eq-term .et-label { font-size: 9px; color: var(--muted); }
+  .eq-term .et-val   { font-size: 13px; font-weight: 700; }
+  .eq-term.bias .et-val  { color: var(--warning); }
+  .eq-term.fa   .et-val  { color: var(--accent2); }
+  .eq-sign {
+    font-family: var(--mono); font-size: 16px; color: var(--muted); padding: 0 2px;
+  }
+  .eq-equals {
+    font-family: var(--mono); font-size: 16px; color: var(--text); padding: 0 4px;
+  }
+
+  .verif-block {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px 16px; margin-bottom: 8px;
+  }
+  .verif-header {
+    display: flex; justify-content: space-between;
+    margin-bottom: 6px; align-items: center;
+  }
+  .verif-patron { color: var(--muted); font-family: var(--mono); font-size: 11px; }
+  .verif-yr     { font-family: var(--mono); font-size: 14px; font-weight: 700; color: var(--accent); }
+  .verif-el-ok  { font-family: var(--mono); font-size: 12px; color: var(--success); }
+  .verif-el-err { font-family: var(--mono); font-size: 12px; color: var(--warning); }
+  .verif-terminos {
+    display: flex; flex-wrap: wrap; gap: 5px; align-items: center;
+  }
+  .verif-term {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 5px; padding: 4px 8px;
+    font-family: var(--mono); font-size: 11px;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .verif-term .vt-label { font-size: 9px; color: var(--muted); }
+  .verif-term .vt-val   { font-size: 12px; font-weight: 700; color: var(--text); }
+
+  /* ── CÁLCULO DETALLADO DE MÉTRICAS ── */
+  .calc-bloque {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 18px; margin-bottom: 14px;
+  }
+  .calc-bloque-titulo {
+    display: flex; align-items: center; margin-bottom: 14px;
+  }
+  .cbadge {
+    font-family: var(--mono); font-size: 12px; font-weight: 700;
+    border-radius: 6px; padding: 3px 12px;
+  }
+  .formula-box {
+    background: #f1f5f9; border-left: 3px solid var(--accent);
+    border-radius: 0 6px 6px 0; padding: 10px 14px;
+    font-family: var(--mono); font-size: 13px; line-height: 1.8;
+    color: var(--text); margin-bottom: 12px;
+  }
+  .calc-pasos { display: flex; flex-direction: column; gap: 8px; }
+  .paso {
+    display: flex; align-items: baseline; gap: 14px;
+    padding: 8px 12px; background: #f8fafc;
+    border-radius: 7px; border: 1px solid var(--border);
+  }
+  .paso.resultado { background: rgba(0,119,204,.04); border-color: rgba(0,119,204,.2); }
+  .paso-label { font-size: 12px; color: var(--muted); min-width: 130px; font-weight: 500; }
+  .paso-val   { font-family: var(--mono); font-size: 14px; color: var(--text); }
+
+  .calc-grid-metricas {
+    display: grid; grid-template-columns: repeat(3,1fr); gap: 10px;
+  }
+  .calc-metrica-card {
+    background: #f8fafc; border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .cmc-nombre    { font-size: 13px; font-weight: 700; }
+  .cmc-formula   { font-family: var(--mono); font-size: 12px; color: var(--muted);
+                   background: #f1f5f9; padding: 4px 8px; border-radius: 4px; }
+  .cmc-desarrollo{ font-family: var(--mono); font-size: 13px; color: var(--text); }
+  .cmc-resultado { font-family: var(--mono); font-size: 22px; font-weight: 700; margin-top: 4px; }
+  .eg-table { width: 100%; border-collapse: collapse; }
+  .eg-table th { padding: 8px 14px; text-align:left; font-size:10px;
+    letter-spacing:1px; color:var(--accent); text-transform:uppercase;
+    border-bottom:1px solid var(--border); }
+  .eg-table td { padding: 9px 14px; font-family: var(--mono); font-size: 13px;
+    border-bottom: 1px solid rgba(30,45,64,.4); }
+  .eg-table tr:hover td { background: rgba(0,212,255,.03); }
+  .eg-total {
+    margin-top: 14px; padding: 14px 18px;
+    background: rgba(0,119,204,.05); border: 1px solid rgba(0,119,204,.2);
+    border-radius: 8px; font-family: var(--mono); font-size: 14px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .eg-total .eg-val { font-size: 24px; font-weight: 700; color: var(--accent); }
+  .weights-wrap {
+    display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">RBF</div>
+  <div>
+    <h1>Red Neuronal RBF <span id="header-clases">— Clasificación</span></h1>
+  </div>
+  <span id="badge-estado">Sin entrenar</span>
+</header>
+
+<div class="layout">
+
+  <!-- ══ SIDEBAR ══ -->
+  <aside class="sidebar">
+
+    <!-- Dataset -->
+    <div class="card">
+      <div class="sec-title">📁 Dataset</div>
+      <label>Archivo JSON</label>
+      <input type="file" id="file-input" accept=".json">
+      <div id="dataset-info" class="hidden"
+           style="font-size:10px;color:var(--muted);font-family:var(--mono);
+                  background:var(--bg);border-radius:6px;padding:8px;line-height:1.8;">
+      </div>
+    </div>
+
+    <!-- Red -->
+    <div class="card">
+      <div class="sec-title">🧠 Configurar Red</div>
+
+      <label>Neuronas capa oculta</label>
+      <input type="number" id="n-centros" value="2" min="1" max="50">
+
+      <label>Error óptimo (condición de parada)</label>
+      <input type="number" id="error-optimo" value="0.10" min="0.001" max="1" step="0.01">
+
+      <label>Máx. reentrenamientos</label>
+      <input type="number" id="max-iter" value="10" min="1" max="30">
+
+      <label>Semilla aleatoria</label>
+      <input type="number" id="semilla" value="42" min="0">
+
+      <label>Función de activación</label>
+      <select id="funcion-rbf">
+        <option value="logaritmica">Logarítmica  d²·ln(d)</option>
+        <option value="gaussiana">Gaussiana  exp(−d²)</option>
+        <option value="multicuadrica">Multicuádrica  √(d²+1)</option>
+        <option value="inversa">Inversa  1/√(d²+1)</option>
+      </select>
+
+      <label>Partición del dataset</label>
+      <input type="range" id="particion" min="60" max="90" value="80" step="5">
+      <div class="part-labels">
+        <span id="lbl-train">Train 80%</span>
+        <span id="lbl-val">Val 10%</span>
+        <span id="lbl-test">Test 10%</span>
+      </div>
+    </div>
+
+    <!-- Centros manuales -->
+    <div class="card">
+      <div class="sec-title">📍 Centros Radiales</div>
+      <div class="toggle-row">
+        <label class="toggle">
+          <input type="checkbox" id="toggle-manuales">
+          <span class="slider-tog"></span>
+        </label>
+        <span style="font-size:11px;">Definir centros manualmente</span>
+      </div>
+      <div id="centros-container"></div>
+    </div>
+
+    <button class="btn btn-primary" id="btn-train" disabled>Carga un dataset primero</button>
+    <button class="btn btn-secondary" id="btn-reset">↺ Reiniciar</button>
+
+    <!-- Consola -->
+    <div class="card">
+      <div class="sec-title">🖥 Consola</div>
+      <div class="console" id="console">
+        <span class="log-info">// Carga el JSON para comenzar</span>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ══ MAIN ══ -->
+  <main class="main">
+
+    <!-- Estado vacío -->
+    <div class="empty" id="empty-state">
+      <div class="icon">⬡</div>
+      <h3 style="font-family:var(--mono);font-size:15px;">Red no entrenada</h3>
+      <p>Carga el dataset JSON, configura los parámetros y presiona Entrenar.</p>
+    </div>
+
+    <!-- Resultados -->
+    <div id="results" class="hidden">
+
+      <!-- Stats top -->
+      <div class="stats-row">
+        <div class="stat-card blue">
+          <div class="stat-label">EXACTITUD</div>
+          <div class="stat-value" id="s-exactitud">—</div>
+          <div class="stat-sub">Accuracy</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-label">F1-SCORE</div>
+          <div class="stat-value" id="s-f1">—</div>
+          <div class="stat-sub">Media armónica</div>
+        </div>
+        <div class="stat-card purple">
+          <div class="stat-label">NEURONAS OCULTAS</div>
+          <div class="stat-value" id="s-centros">—</div>
+          <div class="stat-sub">Centros finales</div>
+        </div>
+        <div class="stat-card orange">
+          <div class="stat-label">EG ENTRENAMIENTO</div>
+          <div class="stat-value" id="s-eg">—</div>
+          <div class="stat-sub">Error general</div>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs">
+        <button class="tab active" onclick="tab('graficas')">Gráficas</button>
+        <button class="tab" onclick="tab('metricas')">Métricas</button>
+        <button class="tab" onclick="tab('datos')">Datos</button>
+        <button class="tab" onclick="tab('red')">Red</button>
+        <button class="tab" onclick="tab('calculos')">📐 Cálculos</button>
+      </div>
+
+      <!-- TAB GRÁFICAS -->
+      <div class="tab-panel active" id="tab-graficas">
+        <div class="grid-2">
+          <div class="chart-card">
+            <div class="chart-title">Salida Deseada vs Calculada</div>
+            <div class="chart-wrap"><canvas id="ch-yd-yr"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">Errores Individuales (EL = YD − YR)</div>
+            <div class="chart-wrap"><canvas id="ch-errores"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">EG por Iteración de Entrenamiento</div>
+            <div class="chart-wrap"><canvas id="ch-eg"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">Clases Reales vs Predichas</div>
+            <div class="chart-wrap"><canvas id="ch-clases"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB MÉTRICAS -->
+      <div class="tab-panel" id="tab-metricas">
+        <div class="grid-2" style="margin-bottom:14px;">
+          <div class="chart-card">
+            <div class="chart-title">Matriz de Confusión</div>
+            <div class="cm-wrap" id="cm-display"></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">Resumen Macro — Barras</div>
+            <div id="metrics-bars" style="padding:8px 0;"></div>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Desarrollo del Cálculo de Métricas</div>
+          <div id="metrics-detalle"></div>
+        </div>
+      </div>
+
+      <!-- TAB DATOS -->
+      <div class="tab-panel" id="tab-datos">
+        <div class="chart-card" style="margin-bottom:14px;">
+          <div class="chart-title">Estadística Descriptiva</div>
+          <div class="desc-grid" id="desc-grid"></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Simulación — Primeros 30 patrones de prueba</div>
+          <div style="overflow-x:auto;">
+            <table>
+              <thead>
+                <tr><th>#</th><th>YD</th><th>YR</th><th>YC</th><th>Error EL</th><th>Estado</th></tr>
+              </thead>
+              <tbody id="sim-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB RED -->
+      <div class="tab-panel" id="tab-red">
+        <div class="info-grid">
+          <div class="desc-card">
+            <h4>Arquitectura</h4>
+            <div class="desc-item"><span>Entradas</span><span id="r-ent">—</span></div>
+            <div class="desc-item"><span>Neuronas ocultas</span><span id="r-ocul">—</span></div>
+            <div class="desc-item"><span>Salidas</span><span id="r-salidas">1</span></div>
+            <div class="desc-item"><span>Función FA</span><span id="r-fa">—</span></div>
+          </div>
+          <div class="desc-card">
+            <h4>Entrenamiento</h4>
+            <div class="desc-item"><span>EG train</span><span id="r-egtrain">—</span></div>
+            <div class="desc-item"><span>EG test</span><span id="r-egtest">—</span></div>
+            <div class="desc-item"><span>Error óptimo</span><span id="r-eopt">—</span></div>
+            <div class="desc-item"><span>Convergencia</span><span id="r-conv">—</span></div>
+          </div>
+          <div class="desc-card">
+            <h4>Partición</h4>
+            <div class="desc-item"><span>Total</span><span id="r-total">—</span></div>
+            <div class="desc-item"><span>Train</span><span id="r-train">—</span></div>
+            <div class="desc-item"><span>Val</span><span id="r-val">—</span></div>
+            <div class="desc-item"><span>Test</span><span id="r-test">—</span></div>
+          </div>
+        </div>
+        <div class="chart-card" style="margin-bottom:14px;">
+          <div class="chart-title">Pesos W (capa de salida)</div>
+          <div class="weights-wrap" id="weights-display"></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Centros Radiales (vector de cada neurona)</div>
+          <div style="overflow-x:auto;">
+            <table>
+              <thead><tr id="centros-thead"></tr></thead>
+              <tbody id="centros-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB CÁLCULOS -->
+      <div class="tab-panel" id="tab-calculos">
+
+        <div class="chart-card" style="margin-bottom:14px;">
+          <div class="chart-title">Seleccionar Patrón de Entrenamiento</div>
+          <div style="display:flex;align-items:center;gap:12px;margin-top:4px;">
+            <input type="range" id="patron-slider" min="0" value="0"
+                   style="flex:1;" oninput="cambiarPatron(this.value)">
+            <span id="patron-label" style="font-family:var(--mono);font-size:12px;
+                  color:var(--accent);min-width:80px;">Patrón 1</span>
+          </div>
+          <div style="font-size:10px;color:var(--muted);margin-top:6px;">
+            Solo se muestran los primeros 30 patrones de entrenamiento para claridad.
+          </div>
+        </div>
+
+        <div id="calc-container"></div>
+
+        <div class="chart-card" style="margin-top:14px;">
+          <div class="chart-title">Matriz de Interpolación A · W = Y</div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:10px;font-family:var(--mono);">
+            Cada fila = un patrón &nbsp;|&nbsp; Columna 0 = bias (siempre 1) &nbsp;|&nbsp;
+            Columnas 1..n = FA(distancia al centro j)
+          </div>
+          <div style="overflow-x:auto;">
+            <table id="matriz-a-table">
+              <thead><tr id="matriz-a-thead"></tr></thead>
+              <tbody id="matriz-a-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-top:14px;">
+          <div class="chart-card">
+            <div class="chart-title">Sistema A·W = Y → Solución W = A\Y</div>
+            <div id="ecuaciones-display"></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">Verificación: Sustitución de Pesos</div>
+            <div id="verificacion-display"></div>
+          </div>
+        </div>
+
+        <div class="chart-card" style="margin-top:14px;">
+          <div class="chart-title">Cálculo del Error General</div>
+          <div id="eg-display"></div>
+        </div>
+
+      </div>
+
+    </div><!-- /results -->
+  </main>
+</div>
+
+<script>
+// ════════════════════════════════════════════
+// VARIABLES GLOBALES
+// ════════════════════════════════════════════
+let archivoDataset = null;
+let charts = {};
+
+const CHART_BASE = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: { legend: { labels: { color: '#475569', font: { size: 12 } } } },
+  scales: {
+    x: { ticks: { color: '#64748b', font: { size: 11 }, maxTicksLimit: 12 }, grid: { color: 'rgba(148,163,184,.25)' } },
+    y: { ticks: { color: '#64748b', font: { size: 11 } },                    grid: { color: 'rgba(148,163,184,.25)' } }
+  }
+};
+
+// ════════════════════════════════════════════
+// CONSOLA
+// ════════════════════════════════════════════
+function log(msg, tipo = '') {
+  const c = document.getElementById('console');
+  const el = document.createElement('div');
+  el.className = tipo ? `log-${tipo}` : '';
+  el.textContent = '> ' + msg;
+  c.appendChild(el);
+  c.scrollTop = c.scrollHeight;
+}
+
+// ════════════════════════════════════════════
+// CARGAR ARCHIVO
+// ════════════════════════════════════════════
+document.getElementById('file-input').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  archivoDataset = file;
+  const fd = new FormData();
+  fd.append('archivo', file);
+
+  try {
+    const res  = await fetch('/cargar', { method: 'POST', body: fd });
+    const data = await res.json();
+
+    if (!data.ok) { log('Error: ' + data.error, 'err'); return; }
+
+    document.getElementById('dataset-info').classList.remove('hidden');
+    document.getElementById('dataset-info').innerHTML =
+      `<b style="color:var(--accent)">${data.dataset}</b><br>
+       Patrones: ${data.patrones} | Entradas: ${data.n_entradas}<br>
+       ${data.clases.map((c,i) => `Clase ${c}: ${data.conteos[i]}`).join(' | ')}`;
+
+    document.getElementById('btn-train').disabled = false;
+    document.getElementById('btn-train').textContent = '▶ Entrenar Red RBF';
+
+    document.getElementById('header-clases').textContent =
+      `— Clasificación ${data.clases.length} Clase${data.clases.length > 1 ? 's' : ''}`;
+
+    log(`Dataset cargado: ${data.patrones} patrones`, 'ok');
+    log(`Features: ${data.features.join(', ')}`);
+
+    actualizarCentrosManuales(data.n_entradas, data.features);
+  } catch(err) {
+    log('Error de conexión: ' + err.message, 'err');
+  }
+});
+
+// ════════════════════════════════════════════
+// SLIDER PARTICIÓN
+// ════════════════════════════════════════════
+document.getElementById('particion').addEventListener('input', function() {
+  const train = parseInt(this.value);
+  const resto = 100 - train;
+  const val   = Math.floor(resto / 2);
+  document.getElementById('lbl-train').textContent = `Train ${train}%`;
+  document.getElementById('lbl-val').textContent   = `Val ${val}%`;
+  document.getElementById('lbl-test').textContent  = `Test ${resto - val}%`;
+});
+
+// ════════════════════════════════════════════
+// CENTROS MANUALES
+// ════════════════════════════════════════════
+document.getElementById('toggle-manuales').addEventListener('change', () => {
+  actualizarCentrosManuales();
+});
+document.getElementById('n-centros').addEventListener('input', () => {
+  if (document.getElementById('toggle-manuales').checked) actualizarCentrosManuales();
+});
+
+function actualizarCentrosManuales(nInputs = 4, labels = ['x1','x2','x3','x4']) {
+  const activo = document.getElementById('toggle-manuales').checked;
+  const cont   = document.getElementById('centros-container');
+  cont.style.display = activo ? 'block' : 'none';
+  if (!activo) return;
+
+  const nc = parseInt(document.getElementById('n-centros').value) || 2;
+  cont.innerHTML = '';
+
+  for (let i = 0; i < nc; i++) {
+    const bloque = document.createElement('div');
+    bloque.className = 'centro-bloque';
+    bloque.innerHTML = `<div class="centro-bloque-title">Centro ${i+1}</div>`;
+    const row = document.createElement('div');
+    row.className = 'centro-inputs';
+    for (let j = 0; j < nInputs; j++) {
+      const inp = document.createElement('input');
+      inp.type = 'number'; inp.step = '0.1'; inp.value = '0.0';
+      inp.id = `c_${i}_${j}`;
+      inp.placeholder = labels[j] || `x${j+1}`;
+      row.appendChild(inp);
+    }
+    bloque.appendChild(row);
+    cont.appendChild(bloque);
+  }
+}
+
+// ════════════════════════════════════════════
+// ENTRENAR
+// ════════════════════════════════════════════
+document.getElementById('btn-train').addEventListener('click', async () => {
+  if (!archivoDataset) return;
+
+  const btn = document.getElementById('btn-train');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Entrenando...';
+
+  const trainPct = parseInt(document.getElementById('particion').value) / 100;
+  const manuales = document.getElementById('toggle-manuales').checked;
+  const nc = parseInt(document.getElementById('n-centros').value) || 2;
+
+  let centrosManuales = null;
+  if (manuales) {
+    centrosManuales = [];
+    for (let i = 0; i < nc; i++) {
+      const fila = [];
+      let j = 0;
+      while (document.getElementById(`c_${i}_${j}`)) {
+        fila.push(parseFloat(document.getElementById(`c_${i}_${j}`).value) || 0);
+        j++;
+      }
+      centrosManuales.push(fila);
+    }
+  }
+
+  const config = {
+    n_centros:        nc,
+    error_optimo:     parseFloat(document.getElementById('error-optimo').value),
+    max_iter:         parseInt(document.getElementById('max-iter').value),
+    semilla:          parseInt(document.getElementById('semilla').value),
+    tipo_fa:          document.getElementById('funcion-rbf').value,
+    train_pct:        trainPct,
+    centros_manuales: centrosManuales,
+  };
+
+  log('Enviando configuración al servidor...', 'info');
+
+  const fd = new FormData();
+  fd.append('archivo', archivoDataset);
+  fd.append('config', JSON.stringify(config));
+
+  try {
+    const res  = await fetch('/entrenar', { method: 'POST', body: fd });
+    const data = await res.json();
+
+    if (!data.ok) { log('Error del servidor: ' + data.error, 'err'); return; }
+
+    data.log.forEach(l => {
+      const tipo = l.includes('CONVERGE') ? 'ok' : l.includes('no converge') ? 'warn' : '';
+      log(l, tipo);
+    });
+    log(`EG test: ${data.eg_test.toFixed(4)} | Exactitud: ${(data.metricas.exactitud*100).toFixed(1)}%`, 'ok');
+
+    renderResultados(data, config);
+
+  } catch(err) {
+    log('Error de conexión: ' + err.message, 'err');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '▶ Volver a Entrenar';
+  }
+});
+
+// ════════════════════════════════════════════
+// RENDERIZAR RESULTADOS
+// ════════════════════════════════════════════
+function renderResultados(data, config) {
+  document.getElementById('empty-state').classList.add('hidden');
+  document.getElementById('results').classList.remove('hidden');
+
+  const m = data.metricas;
+
+  document.getElementById('s-exactitud').textContent = (m.exactitud*100).toFixed(1) + '%';
+  document.getElementById('s-f1').textContent        = (m.f1*100).toFixed(1) + '%';
+  document.getElementById('s-centros').textContent   = data.red.n_ocultas;
+  document.getElementById('s-eg').textContent        = data.eg_train.toFixed(4);
+
+  const badge = document.getElementById('badge-estado');
+  badge.textContent = data.convergio ? '✓ Convergió' : '⚠ Sin convergencia';
+  badge.style.color = data.convergio ? 'var(--success)' : 'var(--warning)';
+
+  renderGraficas(data, config.error_optimo);
+  renderCM(m);
+  renderMetricas(m);
+  renderDesc(data.estadistica);
+  renderSim(data.simulacion);
+  renderRed(data, config);
+  renderCalculos(data);
+}
+
+// ════════════════════════════════════════════
+// GRÁFICAS
+// ════════════════════════════════════════════
+function mkChart(id, config) {
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart(document.getElementById(id), config);
+}
+
+function renderGraficas(data, errorOpt) {
+  const sim    = data.simulacion;
+  const labels = sim.yd.map((_,i) => i+1);
+  const EL     = sim.yd.map((v,i) => v - sim.yr[i]);
+
+  mkChart('ch-yd-yr', { type:'line', data: { labels, datasets: [
+    { label:'YD (deseada)',   data: sim.yd, borderColor:'#0077cc',
+      pointRadius:3, borderWidth:2, tension:.1, pointBackgroundColor:'#0077cc' },
+    { label:'YR (calculada)', data: sim.yr, borderColor:'#f59e0b',
+      pointRadius:3, borderWidth:2, tension:.3, borderDash:[4,2], pointBackgroundColor:'#f59e0b' },
+  ]}, options: CHART_BASE });
+
+  mkChart('ch-errores', { type:'bar', data: { labels, datasets: [
+    { label:'EL', data: EL,
+      backgroundColor: EL.map(e => e>=0 ? 'rgba(0,119,204,.5)' : 'rgba(239,68,68,.5)'),
+      borderColor:     EL.map(e => e>=0 ? '#0077cc' : '#ef4444'),
+      borderWidth: 1 }
+  ]}, options: CHART_BASE });
+
+  mkChart('ch-eg', { type:'line', data: {
+    labels: data.historial_nc.map((nc,i) => `It${i+1} C=${nc}`),
+    datasets: [
+      { label:'EG', data: data.historial_eg,
+        borderColor:'#7c3aed', backgroundColor:'rgba(124,58,237,.15)',
+        pointRadius:5, pointBackgroundColor:'#7c3aed',
+        fill:true, borderWidth:2, tension:.2 },
+      { label:`Error óptimo (${errorOpt})`, data: data.historial_eg.map(()=>errorOpt),
+        borderColor:'#059669', borderDash:[5,3], pointRadius:0, borderWidth:2 }
+    ]
+  }, options: CHART_BASE });
+
+  const clases = data.metricas.clases;
+  const claseLabels = clases.map(c => `Clase ${c}`);
+  const ydCounts = data.conteos_test ? data.conteos_test.yd : clases.map(c => sim.yd.filter(v => v === c).length);
+  const ycCounts = data.conteos_test ? data.conteos_test.yc : clases.map(c => sim.yc.filter(v => v === c).length);
+
+  mkChart('ch-clases', {
+    type: 'bar',
+    data: {
+      labels: claseLabels,
+      datasets: [
+        { label: 'Real (test completo)', data: ydCounts,
+          backgroundColor: 'rgba(0,119,204,0.55)', borderColor: '#0077cc',
+          borderWidth: 2, borderRadius: 4, categoryPercentage: 0.75, barPercentage: 0.45 },
+        { label: 'Predicha', data: ycCounts,
+          backgroundColor: 'rgba(245,158,11,0.55)', borderColor: '#f59e0b',
+          borderWidth: 2, borderRadius: 4, categoryPercentage: 0.75, barPercentage: 0.45 }
+      ]
+    },
+    options: { ...CHART_BASE, scales: { ...CHART_BASE.scales, y: { ...CHART_BASE.scales.y, beginAtZero: true } } }
+  });
+}
+
+// ════════════════════════════════════════════
+// MATRIZ DE CONFUSIÓN
+// ════════════════════════════════════════════
+function renderCM(m) {
+  const clases = m.clases;
+  const N = clases.length;
+  const cm = m.cm;
+
+  const maxVal = Math.max(...cm.flat(), 1);
+  let gridItems = [];
+
+  gridItems.push(`<div class="cm-label" style="grid-column:1;grid-row:1"></div>`);
+  clases.forEach((c, j) => {
+    gridItems.push(`<div class="cm-label" style="grid-column:${j+2};grid-row:1;font-size:9px;padding:4px 2px">Pred ${c}</div>`);
+  });
+
+  clases.forEach((rc, i) => {
+    gridItems.push(`<div class="cm-label" style="grid-column:1;grid-row:${i+2};writing-mode:vertical-lr;transform:rotate(180deg);font-size:9px;padding:2px 4px">Real ${rc}</div>`);
+    clases.forEach((pc, j) => {
+      const val = cm[i][j];
+      const isDiag = i === j;
+      const intensity = val / maxVal;
+      const bg = isDiag
+        ? `rgba(16,185,129,${0.1 + intensity * 0.4})`
+        : `rgba(239,68,68,${val > 0 ? 0.08 + intensity * 0.35 : 0.04})`;
+      const color = isDiag ? 'var(--success)' : (val > 0 ? 'var(--danger)' : 'var(--muted)');
+      const border = isDiag ? 'rgba(16,185,129,.35)' : 'rgba(239,68,68,.2)';
+      const cellSize = N <= 3 ? '72px' : N <= 5 ? '56px' : '44px';
+      const fontSize = N <= 3 ? '22px' : N <= 5 ? '16px' : '12px';
+      gridItems.push(`
+        <div style="grid-column:${j+2};grid-row:${i+2};width:${cellSize};height:${cellSize};
+          background:${bg};color:${color};border:1px solid ${border};border-radius:6px;
+          display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:var(--mono);">
+          <span style="font-size:${fontSize};font-weight:700">${val}</span>
+          ${N === 2 ? `<span style="font-size:8px;opacity:.7">${i===j?(i===0?'TP':'TN'):(i===0?'FN':'FP')}</span>` : ''}
+        </div>`);
+    });
+  });
+
+  const gridCols = `auto ${Array(N).fill('1fr').join(' ')}`;
+  document.getElementById('cm-display').innerHTML = `
+    <div style="display:grid;grid-template-columns:${gridCols};gap:4px;align-items:center;justify-items:center;overflow-x:auto;">
+      ${gridItems.join('')}
+    </div>`;
+}
+
+// ════════════════════════════════════════════
+// MÉTRICAS
+// ════════════════════════════════════════════
+function renderMetricas(m) {
+  const PALETTE = ['#0077cc','#059669','#d97706','#6d28d9','#dc2626'];
+
+  const macroMetrics = [
+    { nombre:'Exactitud (Accuracy)',       val:m.exactitud,    color:PALETTE[0] },
+    { nombre:'Sensibilidad macro (Recall)',val:m.sensibilidad, color:PALETTE[1] },
+    { nombre:'Precisión macro',            val:m.precision,    color:PALETTE[2] },
+    { nombre:'F1-Score macro',             val:m.f1,           color:PALETTE[3] },
+  ];
+
+  let html = macroMetrics.map(x => `
+    <div class="metric-row">
+      <div class="metric-header">
+        <span class="metric-name" style="font-size:14px">${x.nombre}</span>
+        <span class="metric-val" style="color:${x.color};font-size:15px">${(x.val*100).toFixed(2)}%</span>
+      </div>
+      <div class="metric-bar" style="height:6px">
+        <div class="metric-fill" style="width:${x.val*100}%;background:${x.color}"></div>
+      </div>
+    </div>`).join('');
+
+  if (m.clases && m.clases.length > 2 && m.per_clase) {
+    html += `<div style="margin-top:16px;font-family:var(--mono);font-size:10px;
+      color:var(--accent);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px">
+      Métricas por Clase</div>`;
+    html += `<div style="overflow-x:auto"><table style="min-width:340px">
+      <thead><tr>
+        <th>Clase</th><th>Precisión</th><th>Sensibilidad</th><th>F1</th><th>TP</th><th>FP</th><th>FN</th>
+      </tr></thead><tbody>`;
+    m.clases.forEach((c, idx) => {
+      const pc = m.per_clase[c]; if (!pc) return;
+      const col = PALETTE[idx % PALETTE.length];
+      html += `<tr>
+        <td><span style="color:${col};font-weight:700">Clase ${c}</span></td>
+        <td style="color:${col}">${(pc.precision*100).toFixed(1)}%</td>
+        <td style="color:${col}">${(pc.sensibilidad*100).toFixed(1)}%</td>
+        <td style="color:${col}">${(pc.f1*100).toFixed(1)}%</td>
+        <td>${pc.TP}</td><td>${pc.FP}</td><td>${pc.FN}</td>
+      </tr>`;
+    });
+    html += `</tbody></table></div>`;
+  }
+  document.getElementById('metrics-bars').innerHTML = html;
+
+  let det = '';
+  const cmFlat = m.cm ? m.cm.flat() : [];
+  const N = cmFlat.reduce((a,b)=>a+b, 0);
+  const sumDiag = m.clases.reduce((s,c,i) => s + (m.cm ? m.cm[i][i] : 0), 0);
+
+  det += `
+  <div class="calc-bloque">
+    <div class="calc-bloque-titulo">
+      <span class="cbadge" style="background:rgba(0,119,204,.1);color:#0077cc">Exactitud (Accuracy)</span>
+    </div>
+    <div class="formula-box">
+      Exactitud = (Predicciones correctas) / Total<br>
+      <span style="color:var(--muted);font-size:12px">Predicciones correctas = suma de la diagonal de la matriz de confusión</span>
+    </div>
+    <div class="calc-pasos">
+      <div class="paso">
+        <span class="paso-label">Diagonal</span>
+        <span class="paso-val">${m.clases.map((c,i) => `Clase ${c}: ${m.cm?m.cm[i][i]:0}`).join(' + ')} = ${sumDiag}</span>
+      </div>
+      <div class="paso">
+        <span class="paso-label">Total patrones</span>
+        <span class="paso-val">N = ${N}</span>
+      </div>
+      <div class="paso resultado">
+        <span class="paso-label">Resultado</span>
+        <span class="paso-val" style="color:#0077cc;font-size:16px">
+          ${sumDiag} / ${N} = <strong>${(m.exactitud*100).toFixed(2)}%</strong>
+        </span>
+      </div>
+    </div>
+  </div>`;
+
+  m.clases.forEach((c, idx) => {
+    const pc = m.per_clase[c]; if (!pc) return;
+    const col = PALETTE[idx % PALETTE.length];
+    const sensNum = `${pc.TP} / (${pc.TP} + ${pc.FN})`;
+    const precNum = `${pc.TP} / (${pc.TP} + ${pc.FP})`;
+    const f1Num   = `2 × ${(pc.precision*100).toFixed(1)}% × ${(pc.sensibilidad*100).toFixed(1)}%`;
+    const f1Den   = `${(pc.precision*100).toFixed(1)}% + ${(pc.sensibilidad*100).toFixed(1)}%`;
+
+    det += `
+    <div class="calc-bloque">
+      <div class="calc-bloque-titulo">
+        <span class="cbadge" style="background:rgba(0,0,0,.05);color:${col}">Clase ${c}</span>
+        <span style="font-size:12px;color:var(--muted);margin-left:8px;font-family:var(--mono)">
+          TP=${pc.TP} &nbsp; TN=${pc.TN} &nbsp; FP=${pc.FP} &nbsp; FN=${pc.FN}
+        </span>
+      </div>
+      <div class="calc-grid-metricas">
+        <div class="calc-metrica-card" style="border-color:${col}20">
+          <div class="cmc-nombre" style="color:${col}">Sensibilidad (Recall)</div>
+          <div class="cmc-formula">TP / (TP + FN)</div>
+          <div class="cmc-desarrollo">${sensNum}</div>
+          <div class="cmc-resultado" style="color:${col}">${(pc.sensibilidad*100).toFixed(2)}%</div>
+        </div>
+        <div class="calc-metrica-card" style="border-color:${col}20">
+          <div class="cmc-nombre" style="color:${col}">Precisión</div>
+          <div class="cmc-formula">TP / (TP + FP)</div>
+          <div class="cmc-desarrollo">${precNum}</div>
+          <div class="cmc-resultado" style="color:${col}">${(pc.precision*100).toFixed(2)}%</div>
+        </div>
+        <div class="calc-metrica-card" style="border-color:${col}20">
+          <div class="cmc-nombre" style="color:${col}">F1-Score</div>
+          <div class="cmc-formula">2 × Precisión × Sensibilidad / (P + S)</div>
+          <div class="cmc-desarrollo">${f1Num} / (${f1Den})</div>
+          <div class="cmc-resultado" style="color:${col}">${(pc.f1*100).toFixed(2)}%</div>
+        </div>
+      </div>
+    </div>`;
+  });
+
+  det += `
+  <div class="calc-bloque" style="border-color:var(--accent2);background:rgba(109,40,217,.03)">
+    <div class="calc-bloque-titulo">
+      <span class="cbadge" style="background:rgba(109,40,217,.1);color:var(--accent2)">Promedios Macro</span>
+      <span style="font-size:12px;color:var(--muted);margin-left:8px">Promedio simple entre todas las clases</span>
+    </div>
+    <div class="calc-pasos">
+      <div class="paso">
+        <span class="paso-label">Sensibilidad macro</span>
+        <span class="paso-val">
+          (${m.clases.map(c => m.per_clase[c]?(m.per_clase[c].sensibilidad*100).toFixed(1)+'%':'—').join(' + ')}) / ${m.clases.length}
+          = <strong style="color:var(--accent2)">${(m.sensibilidad*100).toFixed(2)}%</strong>
+        </span>
+      </div>
+      <div class="paso">
+        <span class="paso-label">Precisión macro</span>
+        <span class="paso-val">
+          (${m.clases.map(c => m.per_clase[c]?(m.per_clase[c].precision*100).toFixed(1)+'%':'—').join(' + ')}) / ${m.clases.length}
+          = <strong style="color:var(--accent2)">${(m.precision*100).toFixed(2)}%</strong>
+        </span>
+      </div>
+      <div class="paso">
+        <span class="paso-label">F1-Score macro</span>
+        <span class="paso-val">
+          (${m.clases.map(c => m.per_clase[c]?(m.per_clase[c].f1*100).toFixed(1)+'%':'—').join(' + ')}) / ${m.clases.length}
+          = <strong style="color:var(--accent2)">${(m.f1*100).toFixed(2)}%</strong>
+        </span>
+      </div>
+    </div>
+  </div>`;
+
+  document.getElementById('metrics-detalle').innerHTML = det;
+}
+
+// ════════════════════════════════════════════
+// ESTADÍSTICA DESCRIPTIVA
+// ════════════════════════════════════════════
+function renderDesc(stats) {
+  document.getElementById('desc-grid').innerHTML = stats.map(s => `
+    <div class="desc-card">
+      <h4>${s.nombre}</h4>
+      <div class="desc-item"><span>Mínimo</span><span>${s.min.toFixed(3)}</span></div>
+      <div class="desc-item"><span>Máximo</span><span>${s.max.toFixed(3)}</span></div>
+      <div class="desc-item"><span>Media</span><span>${s.media.toFixed(3)}</span></div>
+      <div class="desc-item"><span>Std Dev</span><span>${s.std.toFixed(3)}</span></div>
+    </div>`).join('');
+}
+
+// ════════════════════════════════════════════
+// TABLA SIMULACIÓN
+// ════════════════════════════════════════════
+function renderSim(sim) {
+  document.getElementById('sim-tbody').innerHTML = sim.yd.map((yd,i) => {
+    const yr = sim.yr[i], yc = sim.yc[i];
+    const el = yd - yr;
+    const ok = yc === yd;
+    return `<tr>
+      <td>${i+1}</td><td>${yd}</td>
+      <td>${yr.toFixed(4)}</td><td>${yc}</td>
+      <td style="color:${Math.abs(el)<.1?'var(--success)':'var(--warning)'}">${el.toFixed(4)}</td>
+      <td><span class="badge ${ok?'b-ok':'b-err'}">${ok?'✓ OK':'✗ Error'}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════
+// TAB RED
+// ════════════════════════════════════════════
+function renderRed(data, config) {
+  const red = data.red;
+  document.getElementById('r-ent').textContent    = red.n_entradas;
+  document.getElementById('r-ocul').textContent   = red.n_ocultas;
+  document.getElementById('r-salidas').textContent = `1 (valores: ${data.metricas.clases.join(', ')})`;
+  document.getElementById('r-fa').textContent     = red.tipo_fa;
+  document.getElementById('r-egtrain').textContent = data.eg_train.toFixed(4);
+  document.getElementById('r-egtest').textContent  = data.eg_test.toFixed(4);
+  document.getElementById('r-eopt').textContent   = config.error_optimo;
+  document.getElementById('r-conv').innerHTML     = data.convergio
+    ? '<span style="color:var(--success)">SÍ ✓</span>'
+    : '<span style="color:var(--warning)">NO ⚠</span>';
+
+  const p = data.particion;
+  const total = p.n_train + p.n_val + p.n_test;
+  document.getElementById('r-total').textContent = total;
+  document.getElementById('r-train').textContent = p.n_train;
+  document.getElementById('r-val').textContent   = p.n_val;
+  document.getElementById('r-test').textContent  = p.n_test;
+
+  document.getElementById('weights-display').innerHTML = red.pesos.map((w,i) => `
+    <div class="weight-chip">
+      <span class="wlabel">W${i}${i===0?' (bias)':''}</span>
+      <span class="wval">${w.toFixed(4)}</span>
+    </div>`).join('');
+
+  document.getElementById('centros-thead').innerHTML =
+    `<th>#</th>` + red.features.map(f=>`<th>${f}</th>`).join('');
+  document.getElementById('centros-tbody').innerHTML = red.centros.map((c,i) =>
+    `<tr><td>${i+1}</td>${c.map(v=>`<td>${v.toFixed(4)}</td>`).join('')}</tr>`
+  ).join('');
+}
+
+// ════════════════════════════════════════════
+// TABS
+// ════════════════════════════════════════════
+function tab(id) {
+  const ids = ['graficas','metricas','datos','red','calculos'];
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ids[i]===id));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id==='tab-'+id));
+}
+
+// ════════════════════════════════════════════
+// CÁLCULOS
+// ════════════════════════════════════════════
+let calcData = null;
+
+function renderCalculos(data) {
+  calcData = data;
+  const sim   = data.simulacion;
+  const total = sim.yd.length;
+
+  const slider = document.getElementById('patron-slider');
+  slider.max   = Math.min(total, 30) - 1;
+  slider.value = 0;
+  document.getElementById('patron-label').textContent = 'Patrón 1';
+
+  renderMatrizA(data);
+  renderEcuaciones(data);
+  renderVerificacion(data);
+  renderEG(data);
+  renderPatron(0);
+}
+
+function renderPatron(idx) {
+  const red = calcData.red;
+  const sim = calcData.simulacion;
+  const features = red.features;
+  const centros  = red.centros;
+  const W        = red.pesos;
+  const tipoFA   = red.tipo_fa;
+
+  const xi = sim.xd ? sim.xd[idx] : null;
+  const yd = sim.yd[idx];
+  const yr = sim.yr[idx];
+  const yc = sim.yc[idx];
+  const el = yd - yr;
+
+  document.getElementById('patron-label').textContent = `Patrón ${idx + 1}`;
+
+  let html = `<div class="calc-patron">
+    <div class="calc-patron-title">
+      <span class="patron-num">${idx + 1}</span>
+      Patrón de entrenamiento — desarrollo completo
+    </div>`;
+
+  html += `<div class="calc-step">
+    <div class="calc-step-title">Paso 1 — Distancia Euclidiana D = √Σ(X − R)²</div>
+    <div class="dist-grid">`;
+
+  centros.forEach((centro, j) => {
+    const difsStr = features.map((f, k) =>
+      xi ? `(${xi[k].toFixed(4)}−${centro[k].toFixed(4)})²` : `(x${k+1}−R${j+1}[${k+1}])²`
+    ).join(' + ');
+
+    const d = Math.sqrt(centro.reduce((s, c, k) => {
+      const xk = xi ? xi[k] : 0;
+      return s + (xk - c) ** 2;
+    }, 0));
+
+    const faVal = aplicarFA(d, tipoFA);
+
+    html += `<div class="dist-chip">
+      <div class="dc-title">D${idx+1}${j+1} — Centro ${j+1}</div>
+      <div>√(${difsStr})</div>
+      <div class="dc-d">D = ${d.toFixed(4)}</div>
+      <div class="dc-fa">FA(${d.toFixed(4)}) = ${faVal.toFixed(4)}</div>
+    </div>`;
+  });
+
+  html += `</div></div>`;
+
+  html += `<div class="calc-step">
+    <div class="calc-step-title">Paso 2 — Ecuación RBF de este patrón</div>
+    <div class="calc-formula">`;
+
+  const terminos = centros.map((centro, j) => {
+    const d     = Math.sqrt(centro.reduce((s, c, k) => s + ((xi ? xi[k] : 0) - c) ** 2, 0));
+    const faVal = aplicarFA(d, tipoFA);
+    return `<span class="lbl">W${j+1}·</span><span class="fa-val">${faVal.toFixed(4)}</span>`;
+  }).join(' + ');
+
+  html += `<span class="lbl">1·W0</span> + ${terminos}
+           <span class="eq"> = </span><span class="val">${yd}</span>`;
+  html += `</div></div>`;
+
+  html += `<div class="calc-step">
+    <div class="calc-step-title">Paso 3 — Resultado de la simulación</div>
+    <div class="calc-formula">
+      <div><span class="lbl">YD (deseada):  </span><span class="val">${yd}</span></div>
+      <div><span class="lbl">YR (calculada):</span><span class="val">${yr.toFixed(4)}</span></div>
+      <div><span class="lbl">YC (clase):    </span><span class="val">${yc}</span></div>
+      <div><span class="lbl">EL = YD − YR:  </span>
+           <span class="${Math.abs(el) < 0.1 ? 'val' : 'fa-val'}">${el.toFixed(4)}</span></div>
+    </div>
+  </div>`;
+
+  html += `</div>`;
+  document.getElementById('calc-container').innerHTML = html;
+}
+
+function aplicarFA(d, tipo) {
+  if (tipo === 'logaritmica')   return d === 0 ? 0 : d*d*Math.log(d);
+  if (tipo === 'gaussiana')     return Math.exp(-(d*d));
+  if (tipo === 'multicuadrica') return Math.sqrt(d*d + 1);
+  if (tipo === 'inversa')       return 1 / Math.sqrt(d*d + 1);
+  return 0;
+}
+
+function renderMatrizA(data) {
+  const red     = data.red;
+  const sim     = data.simulacion;
+  const centros = red.centros;
+  const tipoFA  = red.tipo_fa;
+  const N       = Math.min(sim.yd.length, 10);
+
+  let thead = '<th>Patrón</th><th style="color:var(--warning)">Col 0 (bias)</th>';
+  centros.forEach((_, j) => { thead += `<th>FA(D·C${j+1})</th>`; });
+  document.getElementById('matriz-a-thead').innerHTML = thead;
+
+  let tbody = '';
+  for (let i = 0; i < N; i++) {
+    let fila = `<tr><td style="color:var(--muted)">P${i+1}</td>
+                    <td style="color:var(--warning)">1.0000</td>`;
+    centros.forEach((centro, j) => {
+      const xi  = sim.xd ? sim.xd[i] : null;
+      const d   = xi ? Math.sqrt(centro.reduce((s,c,k) => s + (xi[k]-c)**2, 0)) : 0;
+      const val = aplicarFA(d, tipoFA);
+      fila += `<td>${val.toFixed(4)}</td>`;
+    });
+    fila += `</tr>`;
+    tbody += fila;
+  }
+  if (sim.yd.length > 10) {
+    tbody += `<tr><td colspan="${centros.length + 2}"
+              style="color:var(--muted);text-align:center;font-family:var(--mono);font-size:10px;">
+              ... (mostrando 10 de ${sim.yd.length} patrones)</td></tr>`;
+  }
+  document.getElementById('matriz-a-tbody').innerHTML = tbody;
+}
+
+function renderEcuaciones(data) {
+  const red     = data.red;
+  const sim     = data.simulacion;
+  const centros = red.centros;
+  const W       = red.pesos;
+  const tipoFA  = red.tipo_fa;
+  const N       = Math.min(sim.yd.length, 10);
+
+  let html = '';
+  for (let i = 0; i < N; i++) {
+    const yd = sim.yd[i];
+    const xi = sim.xd ? sim.xd[i] : null;
+
+    const faVals = centros.map(centro => {
+      const d = xi ? Math.sqrt(centro.reduce((s,c,k) => s + (xi[k]-c)**2, 0)) : 0;
+      return aplicarFA(d, tipoFA);
+    });
+
+    let terminos = `
+      <div class="eq-term bias">
+        <span class="et-label">1 · W0</span>
+        <span class="et-val">bias</span>
+      </div>`;
+
+    faVals.forEach((fa, j) => {
+      const sign = fa >= 0 ? '+' : '−';
+      terminos += `<span class="eq-sign">${sign}</span>
+        <div class="eq-term fa">
+          <span class="et-label">FA(D${i+1}${j+1}) · W${j+1}</span>
+          <span class="et-val">${Math.abs(fa).toFixed(4)}</span>
+        </div>`;
+    });
+
+    html += `
+      <div class="eq-block">
+        <div class="eq-block-header">
+          <span class="eq-patron-badge">Patrón ${i+1}</span>
+          <span class="eq-yd-badge">= ${yd} (YD)</span>
+        </div>
+        <div class="eq-terminos">
+          ${terminos}
+          <span class="eq-equals">=</span>
+          <span class="eq-yd-badge">${yd}</span>
+        </div>
+      </div>`;
+  }
+
+  html += `<div style="margin-top:14px;padding:14px 16px;
+      background:rgba(109,40,217,.08);border:1px solid rgba(109,40,217,.3);border-radius:8px;">
+    <div style="font-family:var(--mono);font-size:12px;color:var(--accent2);font-weight:700;margin-bottom:10px;">
+      W = A \\ Y — Solución por mínimos cuadrados
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+      ${W.map((w,i) => `
+        <div class="eq-term" style="min-width:90px;">
+          <span class="et-label">W${i}${i===0?' (bias)':''}</span>
+          <span class="et-val" style="color:var(--accent2)">${w.toFixed(4)}</span>
+        </div>`).join('')}
+    </div>
+  </div>`;
+
+  document.getElementById('ecuaciones-display').innerHTML = html;
+}
+
+function renderVerificacion(data) {
+  const red     = data.red;
+  const sim     = data.simulacion;
+  const centros = red.centros;
+  const W       = red.pesos;
+  const tipoFA  = red.tipo_fa;
+  const N       = Math.min(sim.yd.length, 10);
+
+  let html = '';
+  for (let i = 0; i < N; i++) {
+    const yd  = sim.yd[i];
+    const yr  = sim.yr[i];
+    const el  = yd - yr;
+    const ok  = Math.abs(el) < 0.1;
+    const xi  = sim.xd ? sim.xd[i] : null;
+
+    const biasProducto = W[0];
+    let terminos = `
+      <div class="verif-term">
+        <span class="vt-label">1 · W0</span>
+        <span class="vt-val" style="color:var(--warning)">${biasProducto.toFixed(4)}</span>
+      </div>`;
+
+    centros.forEach((centro, j) => {
+      const d    = xi ? Math.sqrt(centro.reduce((s,c,k) => s + (xi[k]-c)**2, 0)) : 0;
+      const faV  = aplicarFA(d, tipoFA);
+      const prod = faV * W[j+1];
+      const sign = prod >= 0 ? '+' : '−';
+      terminos += `
+        <span class="eq-sign" style="font-size:14px">${sign}</span>
+        <div class="verif-term">
+          <span class="vt-label">${Math.abs(faV).toFixed(4)} · W${j+1}</span>
+          <span class="vt-val">${Math.abs(prod).toFixed(4)}</span>
+        </div>`;
+    });
+
+    html += `
+      <div class="verif-block">
+        <div class="verif-header">
+          <span class="verif-patron">Patrón ${i+1} &nbsp;|&nbsp; YD = ${yd}</span>
+          <span class="verif-yr">YR = ${yr.toFixed(4)}</span>
+          <span class="${ok ? 'verif-el-ok' : 'verif-el-err'}">
+            EL = ${el.toFixed(4)} ${ok ? '✓' : '⚠'}
+          </span>
+        </div>
+        <div class="verif-terminos">${terminos}
+          <span class="eq-equals">=</span>
+          <span class="verif-yr">${yr.toFixed(4)}</span>
+        </div>
+      </div>`;
+  }
+
+  document.getElementById('verificacion-display').innerHTML = html;
+}
+
+function renderEG(data) {
+  const sim = data.simulacion;
+  const N   = sim.yd.length;
+
+  let sumaAbs = 0;
+  let html = `<table class="eg-table">
+    <thead><tr>
+      <th>Patrón</th>
+      <th>YD (deseada)</th>
+      <th>YR (calculada)</th>
+      <th>EL = YD − YR</th>
+      <th>|EL|</th>
+    </tr></thead><tbody>`;
+
+  sim.yd.forEach((yd, i) => {
+    const yr  = sim.yr[i];
+    const el  = yd - yr;
+    const abs = Math.abs(el);
+    sumaAbs += abs;
+    const color = abs < 0.1 ? 'var(--success)' : 'var(--warning)';
+    html += `<tr>
+      <td style="color:var(--muted)">P${i+1}</td>
+      <td><strong>${yd}</strong></td>
+      <td>${yr.toFixed(4)}</td>
+      <td style="color:${color};font-weight:700">${el.toFixed(4)}</td>
+      <td style="color:${color};font-weight:700">${abs.toFixed(4)}</td>
+    </tr>`;
+  });
+
+  const eg = sumaAbs / N;
+  html += `</tbody></table>
+  <div class="eg-total">
+    <div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">EG = Σ|EL| / N° patrones</div>
+      <div>${sumaAbs.toFixed(4)} / ${N}</div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">Error General</div>
+      <span class="eg-val">${eg.toFixed(4)}</span>
+    </div>
+  </div>`;
+
+  document.getElementById('eg-display').innerHTML = html;
+}
+
+function cambiarPatron(val) {
+  document.getElementById('patron-label').textContent = `Patrón ${parseInt(val)+1}`;
+  renderPatron(parseInt(val));
+}
+
+// ════════════════════════════════════════════
+// RESET
+// ════════════════════════════════════════════
+document.getElementById('btn-reset').addEventListener('click', () => {
+  archivoDataset = null;
+  Object.values(charts).forEach(c => c.destroy());
+  charts = {};
+  document.getElementById('results').classList.add('hidden');
+  document.getElementById('empty-state').classList.remove('hidden');
+  document.getElementById('dataset-info').classList.add('hidden');
+  document.getElementById('console').innerHTML = '<span class="log-info">// Reiniciado.</span>';
+  document.getElementById('btn-train').disabled = true;
+  document.getElementById('btn-train').textContent = 'Carga un dataset primero';
+  document.getElementById('badge-estado').textContent = 'Sin entrenar';
+  document.getElementById('badge-estado').style.color = '';
+  document.getElementById('file-input').value = '';
+});
+</script>
+</body>
+</html>
